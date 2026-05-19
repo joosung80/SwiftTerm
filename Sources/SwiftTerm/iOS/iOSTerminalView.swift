@@ -2120,6 +2120,53 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         let rangeToDelete = _markedTextRange ?? _selectedTextRange
         var rangeStartPosition = rangeToDelete.startPosition
         var rangeStartIndex = rangeStartPosition.offset
+
+        // Korean IME PTY backspace suppression
+        // -------------------------------------
+        // iOS Korean software keyboard fires deleteBackward during syllable
+        // transitions to clear its internal text buffer (our textInputStorage).
+        // Each cycle is (deleteBackward(range:[..oldLen]) + insertText(newText))
+        // and emits BS bytes that, on a PTY, erase already-committed visible
+        // characters (zsh prompt, prior committed syllables, etc.).
+        //
+        // In Korean input mode, suppress all PTY backspace emission from this
+        // path. textInputStorage is still updated so the keyboard's internal
+        // state stays consistent. tryComposeKoreanFinal still emits its own
+        // BS+commit pair for 받침 합치기 (that path is fine — it BS-erases the
+        // last syllable it itself wrote, then writes the new one).
+        //
+        // Trade-off: user-initiated software-keyboard BS in Korean mode is also
+        // swallowed. Workarounds: switch input mode to English, or use the
+        // hardware keyboard's BS (which routes through pressesBegan, not here).
+        //
+        // Trace evidence: /tmp/swiftterm-trace-0701.log (사용자 dogfood
+        // 2026-05-20 · "동해물과 백두산이 마르고 닳도록" 입력 시 글자가 사라지는 현상 ·
+        // textInputStorage 가 "동물고ㅏ 백산이 고 달ㅎ록 …" 으로 corrupt).
+        if let language = textInputMode?.primaryLanguage, language.hasPrefix("ko") {
+            beginTextInputEdit()
+            if rangeToDelete.isEmpty {
+                if rangeStartIndex == 0 {
+                    // Phantom BS on empty storage — drop silently.
+                    uitiLog("deleteBackward() KOREAN SUPPRESSED phantom (empty storage)")
+                    endTextInputEdit()
+                    return
+                }
+                rangeStartIndex -= 1
+                let deleteIndex = textInputStorage.index(textInputStorage.startIndex, offsetBy: rangeStartIndex)
+                textInputStorage.remove(at: deleteIndex)
+                rangeStartPosition = TextPosition(offset: rangeStartIndex)
+                uitiLog("deleteBackward() KOREAN SUPPRESSED single-char storage-only")
+            } else {
+                let oldText = String(textInputStorage[rangeToDelete.fullRange(in: textInputStorage)])
+                textInputStorage.removeSubrange(rangeToDelete.fullRange(in: textInputStorage))
+                uitiLog("deleteBackward() KOREAN SUPPRESSED range storage-only oldText:\(oldText.debugDescription)")
+            }
+            _markedTextRange = nil
+            _selectedTextRange = TextRange(from: rangeStartPosition, to: rangeStartPosition)
+            endTextInputEdit()
+            return
+        }
+
         if rangeToDelete.isEmpty {
             // If there is no selected text, delete the character before the cursor
 
@@ -2158,7 +2205,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
 
             textInputStorage.removeSubrange(rangeToDelete.fullRange(in: textInputStorage))
         }
-        
+
         _markedTextRange = nil
         _selectedTextRange = TextRange(from: rangeStartPosition, to: rangeStartPosition)
 
