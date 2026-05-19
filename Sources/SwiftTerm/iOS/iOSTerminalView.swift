@@ -1573,6 +1573,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
 
     private func commitTextInput(_ text: String, applyModifiers: Bool) {
+        uitiLog("commitTextInput ENTER text:\(text.debugDescription) applyMods:\(applyModifiers) \(textInputStateDescription())")
         let hadPendingAutoPeriodDelete = pendingAutoPeriodDeleteWasSpace
         if !isAutoPeriodReplacement(text) {
             pendingAutoPeriodDeleteWasSpace = false
@@ -2022,15 +2023,36 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     // the sequence  "ㅇ", "ㅜ", "ㅇ" from becoming "웅", and instead
     // it becomes "우" followed by "ㅇ"
     private func tryComposeKoreanFinal(_ text: String) -> Bool {
-        guard let language = textInputMode?.primaryLanguage, language.hasPrefix("ko") else { return false }
-        guard _markedTextRange == nil else { return false }
-        guard _selectedTextRange.isEmpty, _selectedTextRange.endPosition.offset == textInputStorage.count else { return false }
-        guard text.count == 1, let jamo = text.first else { return false }
-        guard let finalIndex = koreanFinalIndex[jamo] else { return false }
-        guard let lastChar = textInputStorage.last else { return false }
-        guard let composed = composeHangulSyllable(base: lastChar, finalIndex: finalIndex) else { return false }
+        guard let language = textInputMode?.primaryLanguage, language.hasPrefix("ko") else {
+            uitiLog("tryComposeKoreanFinal SKIP guard①(language ko) text:\(text.debugDescription) lang:\(textInputMode?.primaryLanguage ?? "nil")")
+            return false
+        }
+        guard _markedTextRange == nil else {
+            uitiLog("tryComposeKoreanFinal SKIP guard②(markedTextRange nil) marked:\(_markedTextRange?.description ?? "nil")")
+            return false
+        }
+        guard _selectedTextRange.isEmpty, _selectedTextRange.endPosition.offset == textInputStorage.count else {
+            uitiLog("tryComposeKoreanFinal SKIP guard③(cursor at end) selected:\(_selectedTextRange.description) storageCount:\(textInputStorage.count)")
+            return false
+        }
+        guard text.count == 1, let jamo = text.first else {
+            uitiLog("tryComposeKoreanFinal SKIP guard④(text.count==1) text:\(text.debugDescription)")
+            return false
+        }
+        guard let finalIndex = koreanFinalIndex[jamo] else {
+            uitiLog("tryComposeKoreanFinal SKIP guard⑤(finalIndex) jamo:\(jamo) scalar:\(String(format: "U+%04X", jamo.unicodeScalars.first?.value ?? 0))")
+            return false
+        }
+        guard let lastChar = textInputStorage.last else {
+            uitiLog("tryComposeKoreanFinal SKIP (storage empty) jamo:\(jamo)")
+            return false
+        }
+        guard let composed = composeHangulSyllable(base: lastChar, finalIndex: finalIndex) else {
+            uitiLog("tryComposeKoreanFinal SKIP (composeHangulSyllable nil · tIndex≠0) base:\(lastChar) finalIndex:\(finalIndex)")
+            return false
+        }
 
-        uitiLog("koreanComposeFinal base:\(lastChar) jamo:\(jamo) -> \(composed)")
+        uitiLog("koreanComposeFinal HIT base:\(lastChar) jamo:\(jamo) -> \(composed) (BS+send)")
 
         beginTextInputEdit()
         textInputStorage.removeLast()
@@ -2528,14 +2550,22 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
     
     open func showCursor(source: Terminal) {
-        guard let caretView else { return }
-        if caretView.superview == nil {
+        guard let caretView else {
+            uitiLog("showCursor SKIP (caretView nil)")
+            return
+        }
+        let wasAttached = caretView.superview != nil
+        if !wasAttached {
             addSubview(caretView)
         }
+        uitiLog("showCursor wasAttached:\(wasAttached) isHidden:\(caretView.isHidden) metalRenderer:\(metalRenderer != nil) cursorHidden:\(source.cursorHidden)")
     }
 
     open func hideCursor(source: Terminal) {
+        let attached = caretView?.superview != nil
+        let hidden = caretView?.isHidden ?? true
         caretView?.removeFromSuperview()
+        uitiLog("hideCursor wasAttached:\(attached) wasHidden:\(hidden) metalRenderer:\(metalRenderer != nil) cursorHidden:\(source.cursorHidden)")
     }
     
     open func cursorStyleChanged (source: Terminal, newStyle: CursorStyle) {

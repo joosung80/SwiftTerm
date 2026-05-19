@@ -58,13 +58,28 @@ import Foundation
 import UIKit
 import CoreText
 import CoreGraphics
+import OSLog
+
+/// OSLog channel for UITextInput trace. Embedders (e.g. monad-agent) can
+/// capture this via the standard `log stream --predicate 'subsystem ==
+/// "io.github.migueldeicaza.SwiftTerm"'` pattern or by routing the
+/// `category == "uiti"` stream into their own debug-tap sink. Keeping
+/// it as a sibling of the existing `print()` path means apps that don't
+/// configure OSLog filtering still see the trace on stderr when the
+/// `textInputDebugEnabled` flag is set.
+@available(iOS 14.0, *)
+private let uitiOSLog = Logger(subsystem: "io.github.migueldeicaza.SwiftTerm", category: "uiti")
 
 /// UITextInput Log capability
 @inline(__always)
 internal func uitiLog (_ message: @autoclosure () -> String) {
     guard TerminalView.textInputDebugEnabled else { return }
     TerminalView.textInputLogCounter += 1
-    print ("UITextInput[\(TerminalView.textInputLogCounter)]: \(message())")
+    let composed = "UITextInput[\(TerminalView.textInputLogCounter)]: \(message())"
+    print (composed)
+    if #available(iOS 14.0, *) {
+        uitiOSLog.debug("\(composed, privacy: .public)")
+    }
 }
 
 extension TerminalView: UITextInput {    
