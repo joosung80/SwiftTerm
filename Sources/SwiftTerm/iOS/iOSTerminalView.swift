@@ -1580,8 +1580,10 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         }
 
         if tryComposeKoreanFinal(text) {
+            uitiLog("commitTextInput EXIT via tryComposeKoreanFinal HIT path")
             return
         }
+        uitiLog("commitTextInput PROCEED (tryComposeKoreanFinal did not handle) markedRange:\(_markedTextRange?.description ?? "nil")")
 
         beginTextInputEdit()
 
@@ -2005,7 +2007,8 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         _ = sendKittyEvent(event)
     }
 
-    private func sendBackspaceKey() {
+    private func sendBackspaceKey(caller: String = #function) {
+        uitiLog("sendBackspaceKey from:\(caller) kittyMode:\(!terminal.keyboardEnhancementFlags.isEmpty) sendsCtrlH:\(backspaceSendsControlH)")
         if terminal.keyboardEnhancementFlags.isEmpty {
             send([backspaceSendsControlH ? 8 : 0x7f])
             return
@@ -2148,6 +2151,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
             // pressing the backspace, it will delete chunks of text at a time.
             let oldText = textInputStorage[rangeToDelete.fullRange(in: textInputStorage)]
             let backspaces = oldText.count
+            uitiLog("deleteBackward() range delete \(rangeToDelete) backspaces:\(backspaces) oldText:\(String(oldText).debugDescription)")
             for _ in 0..<backspaces {
                 self.sendBackspaceKey()
             }

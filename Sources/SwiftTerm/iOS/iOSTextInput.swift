@@ -164,6 +164,7 @@ extension TerminalView: UITextInput {
             replacementText = normalized
         }
         let backspaces = oldText.count
+        uitiLog("replace() BS-loop count:\(backspaces) oldText:\(String(oldText).debugDescription) replacement:\(replacementText.debugDescription)")
         for _ in 0..<backspaces {
             self.send ([0x7f])
         }
