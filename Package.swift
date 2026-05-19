@@ -25,8 +25,13 @@ let products: [Product] = [
 
 let targets: [Target] = [
     .target(
+        name: "HangulSwift",
+        path: "Sources/HangulSwift",
+        exclude: ["README.md"]
+    ),
+    .target(
         name: "SwiftTerm",
-        dependencies: [],
+        dependencies: ["HangulSwift"],
         path: "Sources/SwiftTerm",
         exclude: platformExcludes + ["Mac/README.md"]
 //        swiftSettings: [
@@ -42,6 +47,11 @@ let targets: [Target] = [
         name: "SwiftTermTests",
         dependencies: ["SwiftTerm"],
         path: "Tests/SwiftTermTests"
+    ),
+    .testTarget(
+        name: "HangulSwiftTests",
+        dependencies: ["HangulSwift"],
+        path: "Tests/HangulSwiftTests"
     )
 ]
 #else
@@ -70,6 +80,11 @@ let benchmarkTargets: [Target] = isGitHubActions ? [] : [
 
 let targets: [Target] = [
     .target(
+        name: "HangulSwift",
+        path: "Sources/HangulSwift",
+        exclude: ["README.md"]
+    ),
+    .target(
         name: "SwiftTerm",
         //
         // We can not use Swift Subprocess, because there is no way of configuring the child process to
@@ -77,6 +92,7 @@ let targets: [Target] = [
 //        dependencies: [
 //            .product(name: "Subprocess", package: "swift-subprocess", condition: .when(platforms: [.macOS, .linux]))
 //        ],
+        dependencies: ["HangulSwift"],
         path: "Sources/SwiftTerm",
         exclude: platformExcludes + ["Mac/README.md"],
         resources: [
@@ -103,6 +119,11 @@ let targets: [Target] = [
         name: "SwiftTermTests",
         dependencies: ["SwiftTerm"],
         path: "Tests/SwiftTermTests"
+    ),
+    .testTarget(
+        name: "HangulSwiftTests",
+        dependencies: ["HangulSwift"],
+        path: "Tests/HangulSwiftTests"
     )
 ] + benchmarkTargets
 #endif
